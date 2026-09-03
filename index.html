@@ -1,57 +1,292 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1"
+>
+
 <title>Study Planner</title>
-<!-- Baseline hardening for this wrapper page itself -->
-<meta http-equiv="Content-Security-Policy"
-      content="default-src 'self'; frame-src https://script.google.com; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none';">
+
+<meta
+  http-equiv="Content-Security-Policy"
+  content="
+    default-src 'self';
+    frame-src https://script.google.com https://*.googleusercontent.com;
+    script-src 'self' 'unsafe-inline';
+    style-src 'self' 'unsafe-inline';
+    object-src 'none';
+    base-uri 'none';
+  "
+>
+
 <style>
-  html,body{margin:0;padding:0;height:100%;background:#f4f3ee;overflow:hidden;}
-  #gwFrame{border:0;width:100%;height:100vh;display:block;}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #f4f3ee;
+}
+
+
+#gwFrame {
+  border: 0;
+  width: 100%;
+  height: 100vh;
+  display: block;
+}
+
 </style>
+
 </head>
+
 <body>
 
-<iframe id="gwFrame"
-  src="https://script.google.com/macros/s/AKfycbyxhyG4eWvvGNVOwSSav0xJwrqt3e4S6ugd1sfO5v55OpJRs5uVcARwK9t--QIea6IR8w/exec"
-  referrerpolicy="origin"></iframe>
+
+<iframe
+  id="gwFrame"
+  src="https://script.google.com/macros/s/AKfycbx373Mi86EtaSh83r6uZ5mZgJjg7DghrEUspIVAHvXAyb1jR8bGn4xCDnoS9ohvRKvjlA/exec"
+  referrerpolicy="origin"
+></iframe>
+
 
 <script>
-  var BASE_URL = "https://script.google.com/macros/s/AKfycbyxhyG4eWvvGNVOwSSav0xJwrqt3e4S6ugd1sfO5v55OpJRs5uVcARwK9t--QIea6IR8w/exec";
-  // Apps Script content actually executes inside a sandboxed nested iframe on a
-  // dynamically-generated *.googleusercontent.com subdomain — NOT script.google.com.
-  // We must match by suffix, not by exact origin.
-  var EXPECTED_APP_ORIGIN_SUFFIX = ".googleusercontent.com";
-  var iframe = document.getElementById("gwFrame");
+
+(function () {
+
+  "use strict";
+
+
+  const BASE_URL =
+    "https://script.google.com/macros/s/AKfycbx373Mi86EtaSh83r6uZ5mZgJjg7DghrEUspIVAHvXAyb1jR8bGn4xCDnoS9ohvRKvjlA/exec";
+
+
+  const iframe =
+    document.getElementById(
+      "gwFrame"
+    );
+
+
+  /* =======================================================
+     TRUSTED APPS SCRIPT ORIGINS
+  ======================================================= */
 
   function isTrustedAppOrigin(origin) {
+
     try {
-      var u = new URL(origin);
-      return u.protocol === "https:" && u.hostname.endsWith(EXPECTED_APP_ORIGIN_SUFFIX);
-    } catch (e) {
+
+      const u =
+        new URL(origin);
+
+
+      return (
+
+        u.protocol === "https:" &&
+
+        (
+          u.hostname ===
+            "script.google.com" ||
+
+          u.hostname.endsWith(
+            ".googleusercontent.com"
+          )
+        )
+
+      );
+
+    } catch (err) {
+
       return false;
+
     }
+
   }
 
-  window.addEventListener("message", function (ev) {
-    if (!isTrustedAppOrigin(ev.origin)) return; // only trust the embedded app's real origin
-    var d = ev.data;
-    if (!d || d.source !== "study-planner-nav") return;
 
-    // Answer the child's clickjacking-guard handshake so it reveals itself.
-    // Reply to ev.origin (the actual sender), not a hardcoded constant.
-    if (d.type === "frame-guard-hello" && d.nonce) {
-      ev.source.postMessage({ source: "study-planner-nav", type: "frame-guard-ack", nonce: d.nonce }, ev.origin);
-      return;
+  /* =======================================================
+     VALIDATE NAVIGATION URL
+  ======================================================= */
+
+  function isAllowedAppUrl(url) {
+
+    try {
+
+      const u =
+        new URL(
+          url,
+          BASE_URL
+        );
+
+
+      /*
+       * Only allow Google Apps Script URLs.
+       */
+
+      if (
+        u.protocol !== "https:"
+      ) {
+        return false;
+      }
+
+
+      return (
+
+        u.hostname ===
+          "script.google.com" ||
+
+        u.hostname.endsWith(
+          ".googleusercontent.com"
+        )
+
+      );
+
+    } catch (err) {
+
+      return false;
+
     }
 
-    if (d.type === "navigate" && d.url) {
-      if (typeof d.url !== "string" || d.url.indexOf(BASE_URL) !== 0) return; // stay within our own app
-      iframe.src = d.url;
+  }
+
+
+  /* =======================================================
+     RECEIVE APP MESSAGES
+  ======================================================= */
+
+  window.addEventListener(
+    "message",
+    function (ev) {
+
+      /*
+       * Only accept messages from
+       * Google Apps Script.
+       */
+
+      if (
+        !isTrustedAppOrigin(
+          ev.origin
+        )
+      ) {
+
+        return;
+
+      }
+
+
+      const d =
+        ev.data;
+
+
+      if (
+        !d ||
+        d.source !==
+          "study-planner-nav"
+      ) {
+
+        return;
+
+      }
+
+
+      /* ===================================================
+         FRAME GUARD HANDSHAKE
+      =================================================== */
+
+      if (
+        d.type ===
+          "frame-guard-hello" &&
+        d.nonce
+      ) {
+
+        try {
+
+          ev.source.postMessage(
+            {
+              source:
+                "study-planner-nav",
+
+              type:
+                "frame-guard-ack",
+
+              nonce:
+                d.nonce
+            },
+            ev.origin
+          );
+
+        } catch (err) {}
+
+        return;
+
+      }
+
+
+      /* ===================================================
+         NAVIGATION
+      =================================================== */
+
+      if (
+        d.type ===
+          "navigate" &&
+        d.url
+      ) {
+
+        if (
+          typeof d.url !==
+          "string"
+        ) {
+
+          return;
+
+        }
+
+
+        if (
+          !isAllowedAppUrl(
+            d.url
+          )
+        ) {
+
+          console.warn(
+            "Blocked navigation:",
+            d.url
+          );
+
+          return;
+
+        }
+
+
+        const destination =
+          new URL(
+            d.url,
+            BASE_URL
+          ).href;
+
+
+        console.log(
+          "Study Planner navigation:",
+          destination
+        );
+
+
+        iframe.src =
+          destination;
+
+      }
+
     }
-  });
+  );
+
+
+})();
 </script>
 
 </body>
