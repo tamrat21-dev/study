@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Study Planner</title>
+<!-- Baseline hardening for this wrapper page itself -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; frame-src https://script.google.com; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none';">
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#f4f3ee;overflow:hidden;}
+  #gwFrame{border:0;width:100%;height:100vh;display:block;}
+</style>
+</head>
+<body>
+
+<iframe id="gwFrame"
+  src="https://script.google.com/macros/s/AKfycbzTouUa-yDw4zbxrjJ0_Ls4X1jUlCQ5_2CpcvNew97wmstKw_Z2Nz5UjIuKzZVTDgTpDQ/exec"
+  referrerpolicy="origin"></iframe>
+
+<script>
+  var BASE_URL = "https://script.google.com/macros/s/AKfycbzTouUa-yDw4zbxrjJ0_Ls4X1jUlCQ5_2CpcvNew97wmstKw_Z2Nz5UjIuKzZVTDgTpDQ/exec";
+  // Apps Script content actually executes inside a sandboxed nested iframe on a
+  // dynamically-generated *.googleusercontent.com subdomain — NOT script.google.com.
+  // We must match by suffix, not by exact origin.
+  var EXPECTED_APP_ORIGIN_SUFFIX = ".googleusercontent.com";
+  var iframe = document.getElementById("gwFrame");
+
+  function isTrustedAppOrigin(origin) {
+    try {
+      var u = new URL(origin);
+      return u.protocol === "https:" && u.hostname.endsWith(EXPECTED_APP_ORIGIN_SUFFIX);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  window.addEventListener("message", function (ev) {
+    if (!isTrustedAppOrigin(ev.origin)) return; // only trust the embedded app's real origin
+    var d = ev.data;
+    if (!d || d.source !== "study-planner-nav") return;
+
+    // Answer the child's clickjacking-guard handshake so it reveals itself.
+    // Reply to ev.origin (the actual sender), not a hardcoded constant.
+    if (d.type === "frame-guard-hello" && d.nonce) {
+      ev.source.postMessage({ source: "study-planner-nav", type: "frame-guard-ack", nonce: d.nonce }, ev.origin);
+      return;
+    }
+
+    if (d.type === "navigate" && d.url) {
+      if (typeof d.url !== "string" || d.url.indexOf(BASE_URL) !== 0) return; // stay within our own app
+      iframe.src = d.url;
+    }
+  });
+</script>
+
+</body>
+</html>
